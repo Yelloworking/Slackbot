@@ -12,7 +12,7 @@ var stimer = setInterval(function() {
     for (let action of list) {
         if (action.time == fstr && cursec - action.last > 120) {
             action.callback.apply(this, action.args);
-            action.last = +new Date();
+            action.last = cursec; 
         }
     }
 
