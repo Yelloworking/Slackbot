@@ -1,5 +1,5 @@
 var Nest = function() {
-    this.key = 'Bearer c.otmuQeAK8GHAgORBmxr7PgDjUl17o7kuk93xvyEqYuoTWKActSnrb9TgEGgtq6BLmidsT241lD2FM1ZL9NtMcNnVojbyQjdVIWuoEts3giOT3Uf9LZTNd5QClQhIZ0DA9xKuqnNLPEoCWeit';
+    this.key = '';
     this.device = 'QfWMXjTAsXDKAI40bfTGHHkzzjpt86Rh';
     this.url = 'https://firebase-apiserver06-tah01-iad01.dapi.production.nest.com:9553/';
 }
