@@ -65,6 +65,11 @@ Locking.prototype.setUserToDate = function(dayid, what, userobj, callback)
     }, callback);
 }
 
+Locking.prototype.delToDate = function(dayid, what, callback)
+{
+    locking.API("del/" + what + "/" + dayid, {}, callback);
+}
+
 Locking.prototype.setUserAllDay = function(daynum, what, userobj, callback)
 {
     locking.API("setNext/" + what + "/" + daynum, {
