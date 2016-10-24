@@ -4,8 +4,8 @@ var Slack = require("slack");
 var Locking = require("locking");
 var util = require("util");
 var schedule = require("schedule");
+var Nest = require("nest");
 
-const TOKEN = 'SLACK_TOKEN';
 const CHANNEL_OF = 'G0WNEDBV5';
 const CHANNEL_TEST = 'G0WJD007Q';
 
@@ -27,9 +27,9 @@ var words = {
     smiley: [":)",":p", "><", ":D", "xD", ":o", ":3", "Oo", "O_o", "^^", ":>", ":'(", ":(", ":-(", ";)", ":'", "!", ":°", "...", "..", "!!", "aha", "mdr", "lul", "loul", "...trop swag", "batard", "Ôo", "et toi ?"]
 }
 
-
-var motive = ["Bonne journée :)", "Viens me voir si t'as besoin de quelque chose...", "Pas trop seul ?", "Pas trop dur ce matin ?", "J'ai déposé des croissants dans la cuisine...virtuelle :bread:"]
-var emo = [":kissing_heart:", ":heart:", ":smirk:", ":metal:", ":v:", ":joy:"];
+var agreed = ["Yes", "Parfait, c'est noté", "Bon courage", "Ok pas de prob", "Oui chef"];
+var motive = ["Ca va ?", "guten Morgen !", "Passe une bonne journée", "Il fait pas trop froid ?", "Bon courage !"];
+var emo = [":boom:", ":kissing_heart:", ":heart:", ":smirk:", ":metal:", ":v:", ":joy:", ":thinking_face:"];
 
 var days = ["lundis", "mardis", "mercredis", "jeudis", "vendredis"];
 
@@ -41,6 +41,7 @@ function isWeekend(date) {
     return (day == 6) || (day == 0);
 } 
 
+var nest = new Nest();
 var slack = new Slack(TOKEN);
 var locking = new Locking();
 
@@ -52,6 +53,7 @@ slack.connect(function() {
 
 slack.registerCmd('js', function(obj, ...args) {
 
+    console.log("channel", obj.channel);
     try {
         var ret = eval(args.join(' '));
     } catch(e) {
@@ -77,17 +79,17 @@ schedule("17:00", function() {
         if (!data.who.length) {
             slack.sendMessage(CHANNEL_OF, ":warning: Attention, personne a la fermeture ce soir (ping <!channel>)");
         } else {
-            slack.sendMessage(CHANNEL_OF, "Rappel : ce soir c'est <@"+data.who[0].slackuser+"> qui ferme", emo.pick())
+            slack.sendMessage(CHANNEL_OF, "Ce soir c'est <@"+data.who[0].slackuser+"> qui ferme", emo.pick())
         }
     });
 });
 
-schedule("17:30", function() {
+schedule("17:01", function() {
     var d = new Date();
     d = d.addDays(1);
 
     if (isWeekend(d)) return;
-
+    console.log("check tomorrow");
     var dayid = d.toLocaleFormat("%d%m%y");
 
     locking.getByDayId(dayid, "open", function(ret) {
@@ -96,7 +98,7 @@ schedule("17:30", function() {
         if (!data.who.length) {
             slack.sendMessage(CHANNEL_OF, ":warning: Attention, personne n'ouvre demain matin ! (ping <!channel>)");
         } else {
-            slack.sendMessage(CHANNEL_OF, "Hey, demain matin c'est <@"+data.who[0].slackuser+"> qui ouvre", emo.pick())
+            slack.sendMessage(CHANNEL_OF, "Et demain matin c'est <@"+data.who[0].slackuser+"> qui ouvre", emo.pick())
         }
     });
 });
@@ -113,8 +115,20 @@ schedule("08:05", function() {
         var data = ret.res[0];
 
         if (data.who.length) {
-            slack.sendMessage(CHANNEL_OF, "Hello <@"+data.who[0].slackuser+"> l'ouverture se passe bien ?", emo.pick(), motive.pick());
+            slack.sendMessage(CHANNEL_OF, "Hello <@"+data.who[0].slackuser+">", emo.pick(), motive.pick());
+
+            nest.getTemp(function(temp) {
+                slack.sendMessage(CHANNEL_OF, "La temperature interieur est de", temp.cur + "°C");
+            });
         }
+    });
+});
+
+
+
+slack.registerCmd('temp', function(obj, ...args) {
+    nest.getTemp(function(temp) {
+        obj.reply("La temperature interieur est de", temp.cur + "°C");
     });
 });
 
@@ -176,7 +190,9 @@ slack.registerCmd('of', function(obj, ...args) {
                 var m = args[2].match(/<@([A-Z0-9]+)>/);
                 if (m) {
                     targetUser = slack.users.get(m[1]);
-                }
+                } else if (args[2] == "personne") {
+		    targetUser = null;    
+		}
             }
 
             if (days.indexOf(args[1].toLowerCase()) !== -1) {
@@ -184,10 +200,17 @@ slack.registerCmd('of', function(obj, ...args) {
                     obj.reply("Ok c'est note pour tous les "+ args[1] +" :+1: ");
                 });
             } else {
+		
+		if (targetUser === null) {
+		    locking.delToDate(args[1], action, function(ret) {
+		    	obj.reply(agreed.pick());
+		    })
+		} else {
+               	    locking.setUserToDate(args[1], action, targetUser, function(ret) {
+                    	obj.reply(agreed.pick());
+                    });
 
-                locking.setUserToDate(args[1], action, targetUser, function(ret) {
-                    obj.reply("Ok c'est note :+1:");
-                });
+		}
             }
 
             break;
@@ -202,6 +225,21 @@ slack.hook.on("message", function(msg, resp) {
     }
 
     if (m[1] == slack.self.id) {
+
+        if (/(?=.*allu)(?=.*chauf).*/.test(msg)) {
+            nest.heatNow();
+
+            resp.reply("C'est parti ! :fire: :dash:");
+
+            return;
+        } else if (/(?=.*tein)(?=.*chauf).*/.test(msg)) {
+            nest.heatStop();
+
+            resp.reply("Je coupe ça :snowman_without_snow:");
+
+            return;
+        }
+
         var replied = '';
         var what = ['positive', 'neutral', 'negative'];
 
@@ -213,3 +251,18 @@ slack.hook.on("message", function(msg, resp) {
         resp.reply(replied);
     }
 });
+
+
+var httpserver = new HTTPListener(7100, true, "0.0.0.0");
+httpserver.onrequest = function(req, resp) {
+    console.log("Got an http request", req.data);
+    try {
+        var obj = JSON.parse(req.data);
+
+        slack.sendMessage([obj.channel], obj.message);
+    } catch(e) {
+        console.log("error", e);
+    }
+
+    resp.end("ok");
+}
